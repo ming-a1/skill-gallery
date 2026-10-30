@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Skill Gallery",
+    "description": "Shows every installed skill as a card with version, description, file count, size, update time, and install path; includes a details dialog and confirmed uninstall."
+  }
+}
