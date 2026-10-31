@@ -108,7 +108,8 @@ async function handleSkills(req, res, services) {
   }
   try {
     const payload = await collectSkills();
-    await enrichRegistry(payload.skills);
+    const requestUrl = new URL(req.url ?? '/', 'http://dsh.internal');
+    await enrichRegistry(payload.skills, { refresh: requestUrl.searchParams.get('refresh') === '1' });
     respondJson(res, 200, payload, req.method === 'HEAD');
   } catch (error) {
     services.logger?.warn?.(`skill-gallery: scan failed: ${messageOf(error)}`);
@@ -154,6 +155,10 @@ async function handleUninstall(req, res, services) {
     const skill = skills.find((entry) => entry.id === id);
     if (skill === undefined) {
       respondJson(res, 404, { error: 'skill not found' });
+      return;
+    }
+    if (skill.removable === false) {
+      respondJson(res, 403, { error: 'this skill is provided by a bundle and cannot be removed here' });
       return;
     }
     const removed = await removeSkill(skill);

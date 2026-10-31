@@ -59,12 +59,18 @@ window.__ModuleLoader__.load({
       '.skg-meta-date{margin-top:3px}',
       '.skg-meta-item{display:inline-flex;align-items:center;gap:5px;min-width:0;white-space:nowrap}',
       '.skg-meta-item svg{flex:none;opacity:.85}',
-      '.skg-foot{display:flex;justify-content:flex-end;gap:8px;padding:8px 0 10px;border-top:.5px solid var(--dsw-alias-border-l1)}',
+      '.skg-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 0 10px;border-top:.5px solid var(--dsw-alias-border-l1)}',
+      '.skg-foot-actions{display:flex;align-items:center;gap:8px;margin-left:auto}',
+      '.skg-update{display:inline-flex;align-items:center;flex:none;height:22px;padding:0 8px;border-radius:999px;background:color-mix(in srgb,var(--dsw-alias-state-warn-primary) 12%,transparent);color:var(--dsw-alias-state-warn-primary);font-size:11.5px;line-height:1;white-space:nowrap}',
+      '.skg-outdated{color:var(--dsw-alias-state-warn-primary)}',
       '.skg-btn{display:inline-flex;align-items:center;justify-content:center;flex:none;height:28px;padding:0 13px;border:.5px solid var(--dsw-alias-border-l2);border-radius:8px;background:transparent;color:inherit;font:inherit;font-size:13px;white-space:nowrap;cursor:pointer}',
       '.skg-btn:hover:not(:disabled){background:var(--dsw-alias-bg-layer-2)}',
       '.skg-btn:disabled{opacity:.55;cursor:default}',
       '.skg-btn-danger{color:var(--dsw-alias-state-error-primary);border-color:color-mix(in srgb,var(--dsw-alias-state-error-primary) 42%,var(--dsw-alias-border-l2))}',
       '.skg-btn-danger:hover:not(:disabled){background:color-mix(in srgb,var(--dsw-alias-state-error-primary) 10%,transparent)}',
+      '.skg-icon-btn{display:inline-flex;align-items:center;justify-content:center;flex:none;width:28px;height:28px;padding:0;border:.5px solid var(--dsw-alias-border-l2);border-radius:8px;background:transparent;color:var(--dsw-alias-label-secondary);cursor:pointer}',
+      '.skg-icon-btn:hover:not(:disabled){background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary)}',
+      '.skg-icon-btn:disabled{opacity:.55;cursor:default}',
       '.skg-msg{display:flex;flex-direction:column;align-items:center;gap:8px;padding:54px 16px;text-align:center;color:var(--dsw-alias-label-secondary)}',
       '.skg-msg-icon{display:flex;align-items:center;justify-content:center;width:52px;height:52px;border-radius:16px;background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary)}',
       '.skg-msg-title{margin:6px 0 0;color:var(--dsw-alias-label-primary);font-size:14px;font-weight:500}',
@@ -134,6 +140,10 @@ window.__ModuleLoader__.load({
       installed: '已装',
       detail: '详情',
       uninstall: '卸载',
+      checkUpdates: '检查更新',
+      latestVersion: '最新版本',
+      updateAvailable: '可更新',
+      upToDate: '已是最新',
       close: '关闭',
       files: '{n} 个文件',
       updated: '更新于 {date}',
@@ -181,6 +191,10 @@ window.__ModuleLoader__.load({
       installed: 'Installed',
       detail: 'Details',
       uninstall: 'Uninstall',
+      checkUpdates: 'Check updates',
+      latestVersion: 'Latest version',
+      updateAvailable: 'Update available',
+      upToDate: 'Up to date',
       close: 'Close',
       files: '{n} files',
       updated: 'Updated {date}',
@@ -407,6 +421,7 @@ window.__ModuleLoader__.load({
     function useSkills(route, revision) {
       const [state, setState] = useState({ status: 'loading', data: null, error: null });
       const [tick, setTick] = useState(0);
+      const [force, setForce] = useState(false);
       useEffect(() => {
         const controller = new AbortController();
         let active = true;
@@ -415,7 +430,7 @@ window.__ModuleLoader__.load({
           data: previous.data,
           error: null,
         }));
-        fetch(route, { signal: controller.signal, headers: { accept: 'application/json' } })
+        fetch(force ? route + '?refresh=1' : route, { signal: controller.signal, headers: { accept: 'application/json' } })
           .then((response) => {
             if (!response.ok) throw new Error('HTTP ' + response.status);
             return response.json();
@@ -435,8 +450,11 @@ window.__ModuleLoader__.load({
           active = false;
           controller.abort();
         };
-      }, [route, tick, revision]);
-      const reload = useCallback(() => setTick((value) => value + 1), []);
+      }, [route, tick, revision, force]);
+      const reload = useCallback((forceRefresh = false) => {
+        setForce(forceRefresh === true);
+        setTick((value) => value + 1);
+      }, []);
       return { ...state, reload };
     }
 
@@ -498,8 +516,37 @@ window.__ModuleLoader__.load({
         const { status, data, error, reload } = useSkills(ROUTE, revisionValue);
         const current = useSyncExternalStore(selection.subscribe, selection.get, selection.get);
         const [query, setQuery] = useState('');
+        const [checkingId, setCheckingId] = useState(null);
+        const busyRef = useRef(false);
+
+        useEffect(() => {
+          if (status === 'refreshing' || status === 'loading') {
+            if (checkingId !== null) busyRef.current = true;
+            return;
+          }
+          if (busyRef.current) {
+            busyRef.current = false;
+            setCheckingId(null);
+          }
+        }, [status, checkingId]);
 
         useEffect(() => () => selection.set(null), [selection]);
+
+        // Returning to the page re-scans, so newly installed skills show up.
+        useEffect(() => {
+          const onFocus = () => reload();
+          const onVisible = () => {
+            if (document.visibilityState === 'visible') reload();
+          };
+          const timer = window.setInterval(onFocus, 60000);
+          window.addEventListener('focus', onFocus);
+          document.addEventListener('visibilitychange', onVisible);
+          return () => {
+            window.clearInterval(timer);
+            window.removeEventListener('focus', onFocus);
+            document.removeEventListener('visibilitychange', onVisible);
+          };
+        }, [reload]);
 
         const skills = data !== null && Array.isArray(data.skills) ? data.skills : [];
         const totalBytes = useMemo(() => skills.reduce((sum, skill) => sum + (Number(skill.bytes) || 0), 0), [skills]);
@@ -560,20 +607,41 @@ window.__ModuleLoader__.load({
             h(
               'div',
               { className: 'skg-foot' },
+              skill.updateAvailable === true && typeof skill.latestVersion === 'string'
+                ? h('span', { className: 'skg-update' }, t('updateAvailable') + ' v' + skill.latestVersion)
+                : null,
               h(
-                'button',
-                {
-                  type: 'button',
-                  className: 'skg-btn',
-                  'aria-haspopup': 'dialog',
-                  onClick: () => selection.set({ skill, mode: 'detail' }),
-                },
-                t('detail'),
-              ),
-              h(
-                'button',
-                { type: 'button', className: 'skg-btn skg-btn-danger', onClick: () => selection.set({ skill, mode: 'uninstall' }) },
-                t('uninstall'),
+                'div',
+                { className: 'skg-foot-actions' },
+                h(
+                  'button',
+                  {
+                    type: 'button',
+                    className: 'skg-icon-btn',
+                    title: t('checkUpdates'),
+                    'aria-label': t('checkUpdates'),
+                    disabled: refreshing,
+                    onClick: () => checkOne(skill),
+                  },
+                  h('span', { className: checkingId === skill.id && refreshing ? 'skg-spin' : undefined }, RefreshIcon()),
+                ),
+                h(
+                  'button',
+                  {
+                    type: 'button',
+                    className: 'skg-btn',
+                    'aria-haspopup': 'dialog',
+                    onClick: () => selection.set({ skill, mode: 'detail' }),
+                  },
+                  t('detail'),
+                ),
+                skill.removable === false
+                  ? null
+                  : h(
+                      'button',
+                      { type: 'button', className: 'skg-btn skg-btn-danger', onClick: () => selection.set({ skill, mode: 'uninstall' }) },
+                      t('uninstall'),
+                    ),
               ),
             ),
           );
@@ -582,6 +650,12 @@ window.__ModuleLoader__.load({
         const showSkeleton = status === 'loading' && data === null;
         const showError = status === 'error' && data === null;
         const refreshing = status === 'refreshing' || (status === 'loading' && data !== null);
+
+        const checkOne = (skill) => {
+          if (refreshing || checkingId !== null) return;
+          setCheckingId(skill.id);
+          reload(true);
+        };
 
         return h(
           'div',
@@ -599,7 +673,7 @@ window.__ModuleLoader__.load({
                 h('div', null, h('h1', null, t('title')), h('p', { className: 'skg-sub' }, t('subtitle'))),
                 h(
                   'button',
-                  { type: 'button', className: 'skg-refresh', disabled: status === 'loading', onClick: reload },
+                  { type: 'button', className: 'skg-refresh', disabled: status === 'loading', onClick: () => reload() },
                   h('span', { className: refreshing ? 'skg-spin' : undefined }, RefreshIcon()),
                   t('refresh'),
                 ),
@@ -623,6 +697,11 @@ window.__ModuleLoader__.load({
                 data !== null
                   ? h('span', { className: 'skg-stats' }, t('stats', { n: skills.length, size: formatBytes(totalBytes) }))
                   : null,
+                h(
+                  'button',
+                  { type: 'button', className: 'skg-btn', disabled: status === 'loading' || refreshing, onClick: () => reload(true) },
+                  t('checkUpdates'),
+                ),
               ),
               showSkeleton
                 ? h(
@@ -910,6 +989,16 @@ window.__ModuleLoader__.load({
                   ),
                   row(t('source'), skill.via === 'skillhub' ? t('viaSkillhub') : sourceLabel),
                   row(t('invocation'), t(invocationKey(skill))),
+                  typeof skill.version === 'string' && skill.version.length > 0
+                    ? row(t('version'), 'v' + skill.version)
+                    : null,
+                  typeof skill.latestVersion === 'string' && skill.latestVersion.length > 0
+                    ? row(
+                        t('latestVersion'),
+                        'v' + skill.latestVersion + ' · ' + (skill.updateAvailable === true ? t('updateAvailable') : t('upToDate')),
+                        skill.updateAvailable === true ? 'skg-outdated' : undefined,
+                      )
+                    : null,
                   publisher.length > 0 ? row(t('owner'), publisher) : null,
                 ),
               ),
@@ -920,11 +1009,13 @@ window.__ModuleLoader__.load({
                 h(
                   'div',
                   { className: 'skg-dialog-actions' },
-                  h(
-                    'button',
-                    { type: 'button', className: 'skg-btn skg-btn-danger', onClick: () => selection.set({ skill, mode: 'uninstall' }) },
-                    t('uninstall'),
-                  ),
+                  skill.removable === false
+                    ? null
+                    : h(
+                        'button',
+                        { type: 'button', className: 'skg-btn skg-btn-danger', onClick: () => selection.set({ skill, mode: 'uninstall' }) },
+                        t('uninstall'),
+                      ),
                   h('button', { type: 'button', className: 'skg-btn', onClick: close }, t('close')),
                 ),
               ),
