@@ -24,7 +24,7 @@
         "en": "Shows every installed skill as a card with version, description, file count, size, update time, and install path; includes a details dialog and confirmed uninstall.",
         "zh": "以卡片展示已安装的技能：版本、描述、文件数量、体积、更新时间与安装路径；支持详情弹窗与确认后卸载。"
       },
-      "icon": "https://raw.githubusercontent.com/ming-a1/skill-gallery/384087f8bd6f04b9083cf17092ba02fc5ff1edc6/icon.svg",
+      "icon": "https://raw.githubusercontent.com/ming-a1/skill-gallery/6bed7c28070d6c67114625a0342c627164772373/icon.svg",
       "author": "ming-a1",
       "homepage": "https://github.com/ming-a1/skill-gallery",
       "repository": {
@@ -42,11 +42,11 @@
       "versions": [
         {
           "version": "1.0.0",
-          "publishTimestamp": 1793364633,
+          "publishTimestamp": 1793452932,
           "source": {
             "type": "git",
             "url": "https://github.com/ming-a1/skill-gallery",
-            "commit": "384087f8bd6f04b9083cf17092ba02fc5ff1edc6"
+            "commit": "6bed7c28070d6c67114625a0342c627164772373"
           },
           "engines": {}
         }
