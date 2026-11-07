@@ -38,7 +38,7 @@
 
 两个接口都经过 Host 的浏览器信任栅栏（`connection.requestRejection`）校验。
 
-- `GET /skill-gallery/skills`：返回扫描到的技能 JSON。通过 SkillHub 安装的技能会做一次可选的、带缓存的 `GET /api/v1/skills/<slug>` 查询（默认 `https://api.skillhub.cn`，可用 `DSH_SKILLHUB_API` 覆盖；设为空可完全离线），用于中文名、发布者与最新版本；`?refresh=1` 跳过这层缓存。
+- `GET /skill-gallery/skills`：返回扫描到的技能 JSON。通过 SkillHub 安装的技能会做可选的、带缓存的 `GET /api/v1/skills/<slug>` 与 `GET /api/v1/skills/<slug>/versions` 查询（默认 `https://api.skillhub.cn`，可用 `DSH_SKILLHUB_API` 覆盖；设为空可完全离线），用于中文名、发布者与最新版本；最新版本取版本历史里的最高版本（详情接口的 `latestVersion` 可能滞后）；`?refresh=1` 跳过这层缓存。
 - `POST /skill-gallery/uninstall`：请求体 `{ "id": "<source>:<slug>" }`，只删除当前扫描到的那一个技能。可删除目标仅限扫描到的目录包或扁平 `<name>.md`，解析软链后必须仍是扫描根的直接子项；软链只删链接本身，不删目标。非用户目录提供的技能会标记为不可删除，界面不显示「卸载」，接口也会拒绝。
 
 ## 文件
